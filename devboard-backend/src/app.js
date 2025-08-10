@@ -5,7 +5,7 @@ import authRoutes from './routes/auth.routes.js';
 import boardRoutes from './routes/board.routes.js';
 import listRoutes from './routes/list.routes.js';
 import cardRoutes from './routes/card.routes.js';
-
+import messageRoutes from './routes/message.routes.js';
 
 dotenv.config();
 
@@ -19,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/boards', boardRoutes);
 app.use('/api/lists', listRoutes);
 app.use('/api/cards', cardRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Health check
 app.get('/', (req, res) => {
