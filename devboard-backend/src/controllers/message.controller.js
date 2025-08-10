@@ -4,20 +4,9 @@ const prisma = new PrismaClient();
 
 export const sendMessage = async (req, res) => {
   const { content, boardId } = req.body;
-  const senderId = req.user.userId; // from JWT
+  const senderId = req.user.userId;
 
   try {
-    // Check if user is a member of the board
-    const board = await prisma.board.findUnique({
-      where: { id: boardId },
-      include: { members: true }
-    });
-
-    if (!board) return res.status(404).json({ error: 'Board not found' });
-    if (!board.members.some(member => member.id === senderId)) {
-      return res.status(403).json({ error: 'You are not a member of this board' });
-    }
-
     const message = await prisma.message.create({
       data: {
         content,
@@ -26,6 +15,9 @@ export const sendMessage = async (req, res) => {
       },
       include: { sender: true }
     });
+
+    // Broadcast via Socket.IO
+    req.app.get('io').to(boardId).emit('newMessage', message);
 
     res.status(201).json(message);
   } catch (err) {
