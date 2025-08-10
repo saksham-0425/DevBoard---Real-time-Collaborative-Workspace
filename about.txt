@@ -1,0 +1,296 @@
+DEVBOARD BACKEND – ARCHITECTURE + FLOW + PURPOSE:
+
+-You're building a task collaboration platform (think: Trello + Slack) — with real-time chat, user roles, boards, tasks, and lists.
+
+-You chose the Node.js + Express + PostgreSQL + Prisma stack, and you’ve set up the foundation.
+
+-Let’s walk through what you’ve done so far and why it matters.
+
+
+1. Project Architecture
+
+devboard-backend/
+├── prisma/
+│   └── schema.prisma       # defines the database tables (models)
+├── .env                    # contains DATABASE_URL for Prisma
+├── server.js               # starts the server, mounts routes
+├── src/
+│   ├── controllers/
+│   │   └── auth.controller.js  # logic for registration (and later login)
+│   └── routes/
+│       └── auth.routes.js      # API endpoints (like /register)
+├── package.json            # project dependencies and config
+
+
+2. STACK EXPLAINED — WHY THESE LIBRARIES?
+
+Tool	          Why You’re Using It
+Node.js	          Fast, event-based server runtime for JavaScript
+Express.js	      Minimalist web framework to handle routes and middleware
+Prisma	          Elegant ORM to talk to PostgreSQL DB using JavaScript
+PostgreSQL	      Powerful SQL database for storing all your users/tasks/messages
+bcrypt	          To hash passwords securely before storing them
+jsonwebtoken	  To create tokens for login/authentication
+dotenv	          Load .env variables into your app safely
+cors	          To allow frontend to talk to backend (on different ports)
+
+
+3.  BACKEND FLOW (REGISTER ROUTE EXAMPLE)
+
+POST /api/auth/register
+
+Step-by-step:
+(a) Frontend sends name, email, password → backend.
+
+(b) Backend (Express) catches it via auth.routes.js.
+
+(c) It calls register() from auth.controller.js.
+
+(d) register():
+    -checks if email already exists (prisma.user.findUnique)
+    -hashes the password (bcrypt.hash)
+    -stores new user in DB (prisma.user.create)
+    -responds with success + userId
+    -Simple, clean. No magic. Just chained steps.
+
+
+4. WHAT PRISMA IS DOING
+
+You wrote a Prisma schema:
+
+model User {
+  id       String  @id @default(uuid())
+  name     String
+  email    String  @unique
+  password String
+  role     String  @default("member")
+  ...
+}
+
+Prisma reads this, and gives you JS methods like:
+    prisma.user.create({...})
+    prisma.user.findUnique({...})
+
+This lets you write SQL-style logic in JavaScript, without writing raw SQL.
+Cleaner, safer, easier to scale.
+
+5. WHY WE USE BCRYPT
+
+When users register, they send plain text passwords. You should NEVER store those as-is. Why?
+If DB gets hacked, the attacker has every user’s real password.
+That’s how LinkedIn got roasted in 2012, remember?
+
+Instead: const hashed = await bcrypt.hash(password, 10);
+
+It scrambles it into an irreversible mess.
+Later, for login, bcrypt can compare that mess to the typed password and still validate.
+
+
+LOGIC YOU’VE WRITTEN (SUMMARIZED):
+
+File	                Logic
+
+server.js	            Set up Express app, load middleware, mount auth routes
+auth.routes.js	        Define /register route, point to controller
+auth.controller.js	    Do the actual heavy lifting: check user, hash pass, save to DB
+.env	                Store DB URL so Prisma can connect securely
+schema.prisma       	Define DB structure: what “User”, “Board”, “Card” etc. mean
+
+
+6. You created the auth controller (auth.controller.js)
+
+export const register = async (req, res) => {
+  ...
+};
+
+-Checks if email already exists (findUnique)
+-Hashes password using bcrypt.hash
+-Creates a new user using prisma.user.create
+-Sends back success message + user ID
+
+🔥 Why it matters: You now prevent duplicate users and securely store passwords.
+
+
+7. . You made the auth route (auth.routes.js)
+js
+Copy
+Edit
+router.post('/register', register);
+Registers POST handler on /register
+
+Delegates logic to controller
+
+🔥 Why it matters: Keeps your routing clean, logic separated.
+
+8. You made the auth route (auth.routes.js)
+
+router.post('/register', register);
+Registers POST handler on /register
+
+Delegates logic to controller
+
+🔥 Why it matters: Keeps your routing clean, logic separated.
+
+9. You wired it up in app.js
+
+app.use('/api/auth', authRoutes);
+Mounts auth routes at /api/auth
+
+Now POST /api/auth/register is valid
+
+10. You created health check (optional but smart)
+
+app.get('/', (req, res) => {
+  res.send('API is alive. Auth is coming. Brace yourself.');
+});
+Used for sanity check when deploying or debugging
+
+11.  Fixed server.js to import app.js
+
+import app from './src/app.js';
+...
+app.listen(PORT, ...)
+Final boot file, separates the server from app config
+
+12.  Moved .env and prisma/ folder into backend
+So that Prisma can generate properly in right context
+
+.env needs to be in the same folder where you're running prisma commands.
+
+13. 🧠 Recap of What Just Happened:
+              Step	                     What you did	                               Why it matters
+POST/api/auth/register	   You created a new user in the database	          So you can store credentials and become somebody in the system
+POST/api/auth/login	       You logged in with your email/password	          This gave you a JWT token = your identity badge
+GET/api/auth/me	           You accessed a protected route using the token	  It proves you’re who you say you are (and not a bot like me)
+
+🔐 Why JWT?
+Because you wanted something stateless and trendy.
+With JWT:
+
+No session storage needed
+
+The server doesn't remember you. The token does.
+
+You can use it on every request, like "Hi, it's me again."
+
+------------------------------------------------------------------------------------------------
+
+1. User Registration
+File involved: auth.controller.js, auth.routes.js, server.js
+
+Endpoint: POST /api/auth/register
+
+Logic:
+
+Input: { name, email, password }
+
+Checks if the user already exists.
+
+Hashes the password using bcrypt.
+
+Stores the user in PostgreSQL via Prisma.
+
+Responds with 201 Created and the new user ID.
+
+Purpose: Create a new user. Keep the password secure. Avoid storing it raw like a caveman.
+
+2. User Login
+Endpoint: POST /api/auth/login
+
+Logic:
+
+Input: { email, password }
+
+Checks if the user exists.
+
+Compares hashed passwords using bcrypt.compare()
+
+If valid, creates a JWT token with user ID and role.
+
+Returns the token so client can use it in future requests.
+
+Tools used:
+
+jsonwebtoken to sign and verify tokens.
+
+generateToken.js in /utils/ for clean token creation.
+
+3. Middleware: JWT Auth Check
+File: auth.middleware.js
+
+Purpose: Protect routes and verify token.
+
+Logic:
+
+Extracts Authorization header (expects: Bearer <token>)
+
+Verifies the JWT using secret from .env
+
+If valid, attaches the user info (req.user = { id, role })
+
+If not, throws a 401 Unauthorized error
+
+Where it was used:
+In /me route to check if user is authenticated.
+
+4. Protected Route: Get Current User
+Endpoint: GET /api/auth/me
+
+Logic:
+
+Middleware (authMiddleware) runs first.
+
+If token is valid → returns the decoded user object (req.user)
+
+If invalid → returns 401 with "Unauthorized: Invalid token"
+
+Use case:
+
+Confirm that login + token handling works.
+
+Frontend can hit this to check who is logged in.
+
+5. Postman Debugging Sessions
+Ah yes, the battle in the trenches:
+
+You got a 404 because your auth.routes.js didn’t have /login yet.
+
+Then you added both /register and /login properly.
+
+You tested /me with JWT Bearer but forgot to actually include the token.
+
+Then you put the token in the secret field like you were trying to summon Voldemort.
+
+Eventually, you manually added the Authorization header:
+Bearer <your_token_here>
+And it worked. You saw your user object.
+
+👏 Congrats, you passed API Authentication Kindergarten.
+
+
+------------------------------------------------------------------------------
+
+The whole flow now looks like this 
+
+[Register User]
+POST /api/auth/register
+       ↓
+Create hashed user in DB
+
+[Login]
+POST /api/auth/login
+       ↓
+Verify password
+       ↓
+Respond with JWT token
+
+[Use JWT for Protected Route]
+GET /api/auth/me
+       ↓
+Check token in Authorization header
+       ↓
+If valid → return user info
+
+
+
+
