@@ -26,4 +26,6 @@ app.get('/', (req, res) => {
   res.send('API is alive. Auth is coming. Brace yourself.');
 });
 
-export default app;
+export default (app, io) => {
+  app.set('io', io);
+};
