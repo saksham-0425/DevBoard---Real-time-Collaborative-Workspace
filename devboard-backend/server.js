@@ -15,25 +15,27 @@ const server = http.createServer(app);
 // Attach Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: '*', // You can restrict this later to your frontend URL
+    origin: '*', // You can restrict this later
     methods: ['GET', 'POST']
   }
 });
+
+// ✅ Attach io to app so controllers can access it
+app.set('io', io);
 
 // Socket.IO event handling
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
-  // Join a board room
   socket.on('joinBoard', (boardId) => {
     socket.join(boardId);
     console.log(`User ${socket.id} joined board ${boardId}`);
   });
 
-  // Handle sending message
   socket.on('sendMessage', async (data) => {
     const { content, boardId, senderId } = data;
     try {
+      // Optional: validate board and sender exist before create
       const message = await prisma.message.create({
         data: {
           content,
@@ -43,7 +45,6 @@ io.on('connection', (socket) => {
         include: { sender: true }
       });
 
-      // Emit message to everyone in the board room
       io.to(boardId).emit('newMessage', message);
     } catch (err) {
       console.error('Socket message error:', err);
