@@ -26,6 +26,4 @@ app.get('/', (req, res) => {
   res.send('API is alive. Auth is coming. Brace yourself.');
 });
 
-export default (app, io) => {
-  app.set('io', io);
-};
+export default app; // ✅ export the real Express app
