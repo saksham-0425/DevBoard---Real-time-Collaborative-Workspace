@@ -7,47 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  password  String
-  role      String     @default("member")
-  boards    BoardMember[]    
-  messages  Message[]  @relation("UserMessages") // 👈 ADD THIS LINE
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  password      String
+  role          String        @default("member")
+  boards        BoardMember[]
+  messages      Message[]     @relation("UserMessages")
+  assignedCards Card[]        @relation("CardAssignments") // <-- opposite field here
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  activities Activity[]
 }
 
-
 model Board {
-  id          String   @id @default(uuid())
+  id          String        @id @default(uuid())
   name        String
   description String?
   members     BoardMember[]
   lists       List[]
   messages    Message[]
-  createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  activities Activity[]
 }
 
 model List {
-  id        String   @id @default(uuid())
-  title     String
-  boardId   String
-  board     Board    @relation(fields: [boardId], references: [id])
-  cards     Card[]
+  id      String @id @default(uuid())
+  title   String
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id])
+  cards   Card[]
+  activities Activity[]
 }
 
 model Card {
-  id        String   @id @default(uuid())
-  title     String
+  id          String    @id @default(uuid())
+  title       String
   description String?
-  listId    String
-  list      List     @relation(fields: [listId], references: [id])
+  dueDate     DateTime?
   attachments String[]
-  dueDate   DateTime?
+  status      String    @default("To Do")
+  order       Int       @default(0)
+
+  list   List   @relation(fields: [listId], references: [id])
+  listId String
+
+  assignedUsers User[] @relation("CardAssignments") // <-- relation name must match User.assignedCards
+  activities Activity[]
 }
 
 model Message {
@@ -61,15 +69,30 @@ model Message {
 }
 
 model BoardMember {
-  id        String   @id @default(uuid())
-  role      String   @default("member") // member or admin
-  board     Board    @relation(fields: [boardId], references: [id])
-  boardId   String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  id      String @id @default(uuid())
+  role    String @default("member") // member or admin
+  board   Board  @relation(fields: [boardId], references: [id])
+  boardId String
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([boardId, userId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  action    String
+  cardId    String?
+  listId    String?
+  boardId   String?
+  userId    String?
+  timestamp DateTime @default(now())
+
+  card      Card?    @relation(fields: [cardId], references: [id])
+  list      List?    @relation(fields: [listId], references: [id])
+  board     Board?   @relation(fields: [boardId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
 }
